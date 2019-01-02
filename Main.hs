@@ -47,8 +47,7 @@ nameOf (Entity _ (Person name _)) = name
 
 main :: IO ()
 main = do
-  runSqlite "test.sqlite" $ do
-    runMigration migrateAll
+  query $ runMigration migrateAll
   scotty 3000 $ do
     S.get "/" $ do
       _users <- query $ selectList [] [LimitTo 10]
@@ -57,18 +56,14 @@ main = do
     S.post "/user/" $ do
       _name <- S.param "name"
       _age <- S.param "age"
-      _ <- query $ do
-        insert $ Person _name _age
+      query $ insert $ Person _name _age
       S.text "Success"
       S.redirect "/"
     S.get "/user/:name" $ do
       _name <- S.param "name"
-      _person <- query $ do
-        getBy (PersonName _name)
+      _person <- query $ getBy (PersonName _name)
       blaze $ Views.User.render _person
     S.delete "/user/:name" $ do
       name <- S.param "name"
-      _ <- query $ do
-        DB.deleteWhere [PersonNickname ==. name]
+      query $ DB.deleteWhere [PersonNickname ==. name]
       S.redirect "/"
-    S.post "/user/:name/delete"
