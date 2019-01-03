@@ -4,65 +4,85 @@ import Data.Char
 
 import System.Directory
 
+import Control.Monad.IO.Class (liftIO)
+
 data PinValue = Low | High deriving (Show, Eq)
 
 
-data PinState = None | Input | Output PinValue deriving (Show, Eq)
+data PinState = None | Input | Output deriving (Show, Eq)
 
 
-data Pin = Pin Int PinState deriving Show
+data Pin = Pin Int deriving Show
 
 
 data PinController = PinController Int deriving Show
 
 
 
-pinActive :: PinController -> Pin -> IO Bool
+isActive :: Pin -> IO Bool
 
-pinActive _ (Pin n None) = return False
-
-pinActive (PinController base) (Pin number _) = doesDirectoryExist ("/sys/class/gpio/gpio" ++ (show (base + number)))
-
-
-
-setDirection :: Int -> String -> IO()
-
-setDirection n = writeFile ("/sys/class/gpio/gpio" ++ show n ++ "/direction")
+isActive (Pin number) =
+  doesDirectoryExist ("/sys/class/gpio/gpio" ++ (show number))
 
 
 
-doExport :: PinController -> Pin -> IO()
 
-doExport ctrl@(PinController base) pin@(Pin number _)
-  | pinActive ctrl pin = return ()
-  | otherwise = writeFile "/sys/class/gpio/export" $ show $ base + number
-                                                     
-
-
-(@>) :: Pin -> PinController -> IO()
-
-pin@(Pin number None) @> ctrl@(PinController base)
-  | pinActive ctrl pin = do
-      writeFile "/sys/class/gpio/unexport" $ show $ base + number
-  | otherwise = return ()
-
-pin@(Pin number Input) @> ctrl@(PinController base) = do
-  ctrl' <- doExport ctrl pin
-  setDirection (number + base) "in"
-  return ctrl'
-
-pin@(Pin number (Output val)) @> ctrl@(PinController base) = do
-  ctrl' <- doExport ctrl pin
-  setDirection (number + base) $ map toLower $ show val
-  return ctrl'
+export :: Pin -> IO()
+export pin@(Pin number) = do
+  act <- isActive pin
+  if act then return () else writeFile "/sys/class/gpio/export" (show number)
 
 
 
-(@@) :: PinController -> Int -> IO (Maybe PinValue)
-ctrl@(PinController base) @@ number
-  | pinActive ctrl (Pin number Input) = do
-      val <- readFile ("/sys/class/gpio/gpio" ++ show (base + number) ++ "/value")
-      return $ Just (if val == "0\n" then Low else High)
-  | otherwise = return Nothing
+unexport :: Pin -> IO()
+unexport pin@(Pin number) = do
+  act <- isActive pin
+  if act then writeFile "/sys/class/gpio/unexport" (show number) else return ()
 
 
+
+
+setState :: Pin -> PinState -> IO()
+setState pin@(Pin n) None = unexport pin
+setState (Pin n) _ = do
+  export
+  writeFile ("/sys/class/gpio/gpio" ++ show n ++ "/direction") $
+    if state == Input
+    then "in"
+    else "out"
+                                            
+
+
+getState :: Pin -> IO (PinState)
+getState pin@(Pin n) =
+  if pinActive pin
+  then do
+    direction <- readFile ("/sys/class/gpio/gpio" ++ (show n) ++ "/direction")
+    if direction == "in" then Input else Output
+  else
+    return None
+
+
+
+writeValue :: Pin -> PinValue -> IO()
+writeValue pinValue pin@(Pin n) = do
+  setState pin Output
+  writeFile ("/sys/class/gpio/gpio" ++ show n ++ "/value") $
+    if pinValue == High
+    then "1"
+    else "0"
+
+
+
+readValue :: Pin -> IO (Maybe PinValue)
+readValue pin@(Pin n) =
+  if pinActive
+  then do
+    val <- readFile $ "/sys/class/gpio/gpio" ++ show n ++ "/value"
+    return $ Just $if val == "0\n" then High else Low
+  else return Nothing
+
+
+
+(@@) :: PinController -> Int -> Pin
+ctrl@(PinController base) @@ number = Pin (base + number)
