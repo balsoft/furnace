@@ -44,6 +44,8 @@ render (Just (Entity _ (Person name age))) = H.html $ do
     H.main $ do 
       h1 $ toHtml ("Personal page of " ++ name)
       p $ toHtml (name ++ " is " ++ show age ++ " year" ++ (suffix age) ++ " old")
+      H.form ! method "POST" ! action (stringValue $ "/user/" ++ name ++ "/delete") $ do
+        H.input ! type_ "submit"
 render Nothing = H.html $ do
   H.head $ do
     H.title "Person not found"

@@ -21,7 +21,8 @@ let
           aeson base blaze-html bytestring containers http-types monad-logger
           persistent persistent-postgresql persistent-sqlite
           persistent-template resourcet (pkgs.haskell.lib.dontCheck scotty) text time transformers wai
-          wai-extra wai-middleware-static warp pkgs.cabal-install
+          wai-extra wai-middleware-static warp
+
         ];
         shellHook = "cabal v1-run;exit $?";
         license = "GPL";

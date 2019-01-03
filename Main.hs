@@ -36,10 +36,10 @@ import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
 
-import Model
+-- import Model
 
 import qualified Views.Index
-import qualified Views.User
+-- import qualified Views.User
 
 blaze = S.html . renderHtml
 
@@ -47,23 +47,8 @@ nameOf (Entity _ (Person name _)) = name
 
 main :: IO ()
 main = do
-  query $ runMigration migrateAll
+  
   scotty 3000 $ do
     S.get "/" $ do
-      _users <- query $ selectList [] [LimitTo 10]
-      let users = map nameOf _users
+      
       blaze $ Views.Index.render users
-    S.post "/user/" $ do
-      _name <- S.param "name"
-      _age <- S.param "age"
-      query $ insert $ Person _name _age
-      S.text "Success"
-      S.redirect "/"
-    S.get "/user/:name" $ do
-      _name <- S.param "name"
-      _person <- query $ getBy (PersonName _name)
-      blaze $ Views.User.render _person
-    S.delete "/user/:name" $ do
-      name <- S.param "name"
-      query $ DB.deleteWhere [PersonNickname ==. name]
-      S.redirect "/"
