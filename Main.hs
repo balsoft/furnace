@@ -35,6 +35,9 @@ import Data.Monoid (mconcat)
 import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
+import Controllers.GPIO
+
+import Control.Concurrent (threadDelay)
 
 -- import Model
 
@@ -45,10 +48,33 @@ blaze = S.html . renderHtml
 
 nameOf (Entity _ (Person name _)) = name 
 
-main :: IO ()
+c = PinController 458
+
+a = c @@ 18
+b = c @@ 23
+
+discharge = do
+  setState a Input
+  setState b Output
+  writeValue b Low
+  threadDelay 5000
+
+waitForHigh n = do
+  result <- readValue b
+  if result then n else waitForHigh (n + 1)
+
+charge_time = do
+  setState b Input
+  setState a Output
+  writeValue a High
+  return waitForHigh 0
+
+analog_read = do
+  discharge
+  return charge_time
+
 main = do
-  
-  scotty 3000 $ do
-    S.get "/" $ do
-      
-      blaze $ Views.Index.render users
+  time <- analog_read
+  print time
+  threadDelay 1000000
+
