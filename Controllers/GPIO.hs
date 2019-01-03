@@ -44,8 +44,8 @@ unexport pin@(Pin number) = do
 
 setState :: Pin -> PinState -> IO()
 setState pin@(Pin n) None = unexport pin
-setState (Pin n) state = do
-  export
+setState pin@(Pin n) state = do
+  export pin
   writeFile ("/sys/class/gpio/gpio" ++ show n ++ "/direction") $
     if state == Input
     then "in"
@@ -54,18 +54,19 @@ setState (Pin n) state = do
 
 
 getState :: Pin -> IO (PinState)
-getState pin@(Pin n) =
-  if isActive pin
+getState pin@(Pin n) = do
+  act <- isActive pin
+  if act
   then do
     direction <- readFile ("/sys/class/gpio/gpio" ++ (show n) ++ "/direction")
-    if direction == "in" then Input else Output
+    return $ if direction == "in\n" then Input else Output
   else
     return None
 
 
 
 writeValue :: Pin -> PinValue -> IO()
-writeValue pinValue pin@(Pin n) = do
+writeValue pin@(Pin n) pinValue = do
   setState pin Output
   writeFile ("/sys/class/gpio/gpio" ++ show n ++ "/value") $
     if pinValue == High
@@ -75,8 +76,9 @@ writeValue pinValue pin@(Pin n) = do
 
 
 readValue :: Pin -> IO (Maybe PinValue)
-readValue pin@(Pin n) =
-  if isActive
+readValue pin@(Pin n) = do
+  act <- isActive pin
+  if act
   then do
     val <- readFile $ "/sys/class/gpio/gpio" ++ show n ++ "/value"
     return $ Just $if val == "0\n" then High else Low
