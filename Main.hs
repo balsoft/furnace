@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings, GADTs, FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE EmptyDataDecls       #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
@@ -12,7 +12,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-
+{-
 import qualified Web.Scotty as S
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -35,18 +35,19 @@ import Data.Monoid (mconcat)
 import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
+-}
 import Controllers.GPIO
 
 import Control.Concurrent (threadDelay)
 
 -- import Model
 
-import qualified Views.Index
+--import qualified Views.Index
 -- import qualified Views.User
 
-blaze = S.html . renderHtml
+--blaze = S.html . renderHtml
 
-nameOf (Entity _ (Person name _)) = name 
+--nameOf (Entity _ (Person name _)) = name 
 
 c = PinController 458
 
@@ -57,24 +58,27 @@ discharge = do
   setState a Input
   setState b Output
   writeValue b Low
-  threadDelay 5000
+  threadDelay 10000
 
-waitForHigh n = do
+
+waitForHigh :: Int -> IO Int
+waitForHigh !n = do
   result <- readValue b
-  if result then n else waitForHigh (n + 1)
+  if result == Just High then return (n::Int) else (waitForHigh (n + 1))
 
 charge_time = do
   setState b Input
   setState a Output
   writeValue a High
-  return waitForHigh 0
+  waitForHigh 0
 
 analog_read = do
   discharge
-  return charge_time
+  charge_time
 
 main = do
   time <- analog_read
   print time
   threadDelay 1000000
+  main
 
